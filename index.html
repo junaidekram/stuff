@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>V3 - Pokémon Emulator</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      color: white;
+      font-family: sans-serif;
+    }
+    #game { width: 100%; height: 80%; }
+    #controls {
+      width: 100%; height: 10%;
+      background: #111; color: white;
+      display: flex; justify-content: center;
+      align-items: center; gap: 10px;
+      font-family: sans-serif;
+    }
+    button {
+      background: #333; color: white; border: none;
+      padding: 10px 20px; border-radius: 8px;
+      cursor: pointer; font-size: 16px;
+    }
+    button:hover { background: #555; }
+    #fileInput {
+      margin: 20px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h2>🎮 Pokémon Emulator</h2>
+  <input type="file" id="fileInput" accept=".gba,.gb,.gbc">
+  <div id="game"></div>
+  <div id="controls" style="display:none;">
+    <button id="saveBtn">💾 Save Now</button>
+    <button id="loadBtn">📂 Load Save</button>
+  </div>
+
+  <!-- EmulatorJS CDN -->
+  <script src="https://cdn.emulatorjs.org/emulator.min.js"></script>
+  <script>
+    const gameElement = document.getElementById("game");
+    const controls = document.getElementById("controls");
+    const saveBtn = document.getElementById("saveBtn");
+    const loadBtn = document.getElementById("loadBtn");
+    const fileInput = document.getElementById("fileInput");
+
+    let emulator;
+    let currentRomName = null;
+
+    function startEmulator(romData, romName) {
+      currentRomName = romName;
+
+      emulator = new EmulatorJS({
+        type: "gba", // change if needed: gb, gbc, snes
+        element: gameElement,
+      });
+
+      emulator.loadGame(romData).then(() => {
+        console.log("Game loaded:", romName);
+
+        // Show controls
+        controls.style.display = "flex";
+
+        // Restore save if exists
+        const savedata = localStorage.getItem("save_" + romName);
+        if (savedata) {
+          emulator.loadSaveState(JSON.parse(savedata));
+          console.log("Save loaded.");
+        }
+
+        // Auto-save every 20 sec
+        setInterval(async () => {
+          if (emulator) {
+            const save = await emulator.saveState();
+            localStorage.setItem("save_" + romName, JSON.stringify(save));
+            console.log("Game auto-saved.");
+          }
+        }, 20000);
+      });
+    }
+
+    // File input for Chromebook-friendly ROM loading
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          startEmulator(ev.target.result, file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    // Manual Save
+    saveBtn.addEventListener("click", async () => {
+      if (emulator && currentRomName) {
+        const save = await emulator.saveState();
+        localStorage.setItem("save_" + currentRomName, JSON.stringify(save));
+        alert("Game saved!");
+      }
+    });
+
+    // Manual Load
+    loadBtn.addEventListener("click", async () => {
+      if (emulator && currentRomName) {
+        const savedata = localStorage.getItem("save_" + currentRomName);
+        if (savedata) {
+          emulator.loadSaveState(JSON.parse(savedata));
+          alert("Save loaded!");
+        } else {
+          alert("No save found.");
+        }
+      }
+    });
+  </script>
+</body>
+</html>
